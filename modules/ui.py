@@ -884,6 +884,11 @@ def webcam_preview(root: ctk.CTk, camera_index: int):
 
 def get_available_cameras():
     """Returns a list of available camera names and indices."""
+    # On macOS, skip camera enumeration on startup to avoid permission/threading issues
+    # Cameras will be detected when actually needed
+    if platform.system() == "Darwin":
+        return [0], ["Camera (enable when needed)"]
+
     if platform.system() == "Windows":
         try:
             graph = FilterGraph()
@@ -922,29 +927,33 @@ def get_available_cameras():
         camera_indices = []
         camera_names = []
 
-        if platform.system() == "Darwin":  # macOS specific handling
-            # Try to open the default FaceTime camera first
-            cap = cv2.VideoCapture(0)
-            if cap.isOpened():
-                camera_indices.append(0)
-                camera_names.append("FaceTime Camera")
-                cap.release()
+        try:
+            if platform.system() == "Darwin":  # macOS specific handling
+                # Try to open the default FaceTime camera first
+                cap = cv2.VideoCapture(0)
+                if cap.isOpened():
+                    camera_indices.append(0)
+                    camera_names.append("FaceTime Camera")
+                    cap.release()
 
-            # On macOS, additional cameras typically use indices 1 and 2
-            for i in [1, 2]:
-                cap = cv2.VideoCapture(i)
-                if cap.isOpened():
-                    camera_indices.append(i)
-                    camera_names.append(f"Camera {i}")
-                    cap.release()
-        else:
-            # Linux camera detection - test first 10 indices
-            for i in range(10):
-                cap = cv2.VideoCapture(i)
-                if cap.isOpened():
-                    camera_indices.append(i)
-                    camera_names.append(f"Camera {i}")
-                    cap.release()
+                # On macOS, additional cameras typically use indices 1 and 2
+                for i in [1, 2]:
+                    cap = cv2.VideoCapture(i)
+                    if cap.isOpened():
+                        camera_indices.append(i)
+                        camera_names.append(f"Camera {i}")
+                        cap.release()
+            else:
+                # Linux camera detection - test first 10 indices
+                for i in range(10):
+                    cap = cv2.VideoCapture(i)
+                    if cap.isOpened():
+                        camera_indices.append(i)
+                        camera_names.append(f"Camera {i}")
+                        cap.release()
+        except Exception as e:
+            print(f"Error detecting cameras on macOS: {str(e)}")
+            print("Camera access may require permissions. You can still use the app for video/image processing.")
 
         if not camera_names:
             return [], ["No cameras found"]
